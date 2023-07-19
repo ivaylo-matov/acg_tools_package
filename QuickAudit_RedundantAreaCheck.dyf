@@ -1,0 +1,116 @@
+{
+  "Uuid": "8d1eb458-09c9-4d4b-a53f-adb23bce0faf",
+  "IsCustomNode": true,
+  "Category": "ACG Tools",
+  "Description": "",
+  "Name": "Quick Audit.Redundant Area Check",
+  "ElementResolver": {
+    "ResolutionMap": {}
+  },
+  "Inputs": [],
+  "Outputs": [],
+  "Nodes": [
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.CustomNodes.Output, DynamoCore",
+      "NodeType": "OutputNode",
+      "ElementResolver": null,
+      "Symbol": "*Result",
+      "Id": "d335b410ea0844c1b4718bfc70ec1f72",
+      "Inputs": [
+        {
+          "Id": "0d1fc3c3eaa44242a901a8327c3486fa",
+          "Name": "",
+          "Description": "",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [],
+      "Replication": "Disabled",
+      "Description": "A function output, use with custom nodes"
+    },
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "NodeType": "PythonScriptNode",
+      "Code": "#Copyright (c) mostafa el ayoubi\n#Node-mode 2016 elayoub.mostafa@gmail.com\nimport datetime\nimport os\nimport clr\nclr.AddReference('RevitAPI')\nfrom Autodesk.Revit.DB import*\nclr.AddReference('RevitServices')\nfrom RevitServices.Persistence import DocumentManager\n\ndoc = DocumentManager.Instance.CurrentDBDocument\npath = doc.PathName\ndocname = path.encode('string-escape')\n\n\nareas = FilteredElementCollector(doc)\\\n.OfCategory(BuiltInCategory.OST_Areas)\\\n.ToElements()\n\nOUT = sum(1 for area in areas if not area.Area > 0)",
+      "Engine": "IronPython2",
+      "VariableInputPorts": true,
+      "Id": "74be7c41daff4b4793d7d2076bc776a0",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "3ad41521d3ad4b6e84ace2b12f47065e",
+          "Name": "OUT",
+          "Description": "Result of the python script",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Runs an embedded Python script."
+    }
+  ],
+  "Connectors": [
+    {
+      "Start": "3ad41521d3ad4b6e84ace2b12f47065e",
+      "End": "0d1fc3c3eaa44242a901a8327c3486fa",
+      "Id": "910705254dd14205ae8a23bfb3b4f407"
+    }
+  ],
+  "Dependencies": [],
+  "NodeLibraryDependencies": [],
+  "Author": "None provided",
+  "Bindings": [],
+  "View": {
+    "Dynamo": {
+      "ScaleFactor": 1.0,
+      "HasRunWithoutCrash": false,
+      "IsVisibleInDynamoLibrary": true,
+      "Version": "2.12.1.8246",
+      "RunType": "Manual",
+      "RunPeriod": "1000"
+    },
+    "Camera": {
+      "Name": "Background Preview",
+      "EyeX": 3.0113790527396755,
+      "EyeY": 110.79641487899897,
+      "EyeZ": 34.685916469067045,
+      "LookX": 12.0,
+      "LookY": -13.0,
+      "LookZ": -58.0,
+      "UpX": 0.0,
+      "UpY": 1.0,
+      "UpZ": 0.0
+    },
+    "NodeViews": [
+      {
+        "ShowGeometry": true,
+        "Name": "Output",
+        "Id": "d335b410ea0844c1b4718bfc70ec1f72",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 2798.4342143778413,
+        "Y": 497.15120999536077
+      },
+      {
+        "ShowGeometry": true,
+        "Name": "Python Script",
+        "Id": "74be7c41daff4b4793d7d2076bc776a0",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 2675.7335927561148,
+        "Y": 498.1430842289667
+      }
+    ],
+    "Annotations": [],
+    "X": -3328.5066699598879,
+    "Y": -210.87056936164203,
+    "Zoom": 1.404647709259746
+  }
+}

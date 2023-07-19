@@ -1,0 +1,147 @@
+{
+  "Uuid": "aef287f9-369d-4d31-92af-a18f6962a3d3",
+  "IsCustomNode": true,
+  "Category": "ACG Tools",
+  "Description": "Adds an entry to TXT document every time a script is run. The document is located in R:\\Dynamo\\05-UsageStats",
+  "Name": "Data.Script Use Log",
+  "ElementResolver": {
+    "ResolutionMap": {
+      "DSCore.List": {
+        "Key": "DSCore.List",
+        "Value": "DSCoreNodes.dll"
+      },
+      "Revit.Elements.Category": {
+        "Key": "Revit.Elements.Category",
+        "Value": "RevitNodes.dll"
+      },
+      "ElementQueries": {
+        "Key": "Revit.Elements.InternalUtilities.ElementQueries",
+        "Value": "RevitNodes.dll"
+      }
+    }
+  },
+  "Inputs": [],
+  "Outputs": [],
+  "Nodes": [
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.CustomNodes.Symbol, DynamoCore",
+      "NodeType": "InputNode",
+      "Parameter": {
+        "Name": "script_name",
+        "TypeName": "string",
+        "TypeRank": 0,
+        "DefaultValue": "null",
+        "Description": "The name of the script that is run."
+      },
+      "Id": "d736b680158942c5ab7e8873cdf27792",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "9138508218844041a6e2ae213cde912c",
+          "Name": "",
+          "Description": "Symbol",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "A function parameter, use with custom nodes.\r\n\r\nYou can specify the type and default value for parameter. E.g.,\r\n\r\ninput : var[]..[]\r\nvalue : bool = false"
+    },
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "NodeType": "PythonScriptNode",
+      "Code": "import clr\r\nclr.AddReference(\"RevitServices\")\r\nimport RevitServices\r\nfrom RevitServices.Persistence import DocumentManager\r\nfrom RevitServices.Transactions import TransactionManager\r\nclr.AddReference(\"RevitAPI\")\r\nimport Autodesk\r\nfrom Autodesk.Revit.DB import *\r\nimport System\r\nimport sys\r\nsys.path.append(r\"C:\\Program Files (x86)\\IronPython 2.7\\Lib\")\r\nimport os\r\nimport shutil\r\nfrom datetime import datetime\r\nfrom System import Environment\r\n\r\n\r\napp = DocumentManager.Instance.CurrentUIApplication.Application\r\ndoc = DocumentManager.Instance.CurrentDBDocument\r\n\r\n\r\n# get the script name\r\nscriptName = str(IN[0])\r\n# get the Revit userame\r\nuser = app.Username\r\n\r\n# get the project number\r\npi = FilteredElementCollector(doc)\\\r\n.OfCategory(BuiltInCategory.OST_ProjectInformation)\\\r\n.FirstElement()\r\n\r\nprjNumb = pi.LookupParameter('Project Number').AsString()\r\n# get day\r\nday = str(datetime.now().strftime('%d.%m.%y'))\r\n# get hour\r\nhour = str(datetime.now().strftime('%H:%M'))\r\n\r\n# ASSEMBLE THE DATA\r\nrawData = [scriptName, user, prjNumb, day, hour]\r\ndata = ','.join(rawData) + '\\n'\r\n\r\n# GET THE PATHS\r\nfileDate = str(datetime.now().strftime('%y%m'))\r\nfileName = fileDate + '-ACG-DynamoScriptUsage.txt'\r\nfolderPath = 'R:\\\\3600_IT\\\\3605_BIM\\\\3605_17_Dynamo\\\\05-UsageStats\\\\' + fileName\r\n\r\n# WRITE THE DATA\r\nfile = open(folderPath,'a')\r\nfile.write(data)\r\nfile.close()",
+      "Engine": "IronPython2",
+      "EngineName": "IronPython2",
+      "VariableInputPorts": true,
+      "Id": "71868a6310d14bc6b77c192a9207d8fa",
+      "Inputs": [
+        {
+          "Id": "8d06668798154e739d30c2bc26fcf13b",
+          "Name": "IN[0]",
+          "Description": "Input #0",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "f16f5d42e9b44c1ab9a13151004951a5",
+          "Name": "OUT",
+          "Description": "Result of the python script",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Runs an embedded Python script."
+    }
+  ],
+  "Connectors": [
+    {
+      "Start": "9138508218844041a6e2ae213cde912c",
+      "End": "8d06668798154e739d30c2bc26fcf13b",
+      "Id": "ddb5bc0d03c44f8c94e25b939348ec51",
+      "IsHidden": "False"
+    }
+  ],
+  "Dependencies": [],
+  "NodeLibraryDependencies": [],
+  "Author": "None provided",
+  "Bindings": [],
+  "View": {
+    "Dynamo": {
+      "ScaleFactor": 1.0,
+      "HasRunWithoutCrash": false,
+      "IsVisibleInDynamoLibrary": true,
+      "Version": "2.17.1.4055",
+      "RunType": "Manual",
+      "RunPeriod": "1000"
+    },
+    "Camera": {
+      "Name": "_Background Preview",
+      "EyeX": -17.0,
+      "EyeY": 24.0,
+      "EyeZ": 50.0,
+      "LookX": 12.0,
+      "LookY": -13.0,
+      "LookZ": -58.0,
+      "UpX": 0.0,
+      "UpY": 1.0,
+      "UpZ": 0.0
+    },
+    "ConnectorPins": [],
+    "NodeViews": [
+      {
+        "Name": "Input",
+        "ShowGeometry": true,
+        "Id": "d736b680158942c5ab7e8873cdf27792",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 4065.3439660386703,
+        "Y": 1446.3066102882819
+      },
+      {
+        "Name": "Python Script",
+        "ShowGeometry": true,
+        "Id": "71868a6310d14bc6b77c192a9207d8fa",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 4499.14673672393,
+        "Y": 1446.5586893308594
+      }
+    ],
+    "Annotations": [],
+    "X": -2747.6751490487368,
+    "Y": -888.74075897514615,
+    "Zoom": 0.76944246597330779
+  }
+}

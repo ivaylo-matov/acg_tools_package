@@ -1,0 +1,447 @@
+{
+  "Uuid": "dd5f87c5-75fc-47ba-852c-16b44cf219fc",
+  "IsCustomNode": true,
+  "Category": "ACG Tools",
+  "Description": "Deletes data from Excel cells and removes any formatting. Taken from BumbleBee and updated.",
+  "Name": "Excel.Clear Content",
+  "ElementResolver": {
+    "ResolutionMap": {}
+  },
+  "Inputs": [],
+  "Outputs": [],
+  "Nodes": [
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "NodeType": "PythonScriptNode",
+      "Code": "# Copyright(c) 2016, David Mans, Konrad Sobon\r\n# @arch_laboratory, http://archi-lab.net, http://neoarchaic.net\r\n\r\nimport clr\r\nimport sys\r\nimport System\r\nfrom System import Array\r\nfrom System.Collections.Generic import *\r\n\r\nclr.AddReferenceByName('Microsoft.Office.Interop.Excel, Version=11.0.0.0, Culture=neutral, PublicKeyToken=71e9bce111e9429c')\r\nfrom Microsoft.Office.Interop import Excel\r\nSystem.Threading.Thread.CurrentThread.CurrentCulture = System.Globalization.CultureInfo(\"en-US\")\r\nfrom System.Runtime.InteropServices import Marshal\r\n\r\npyt_path = r'C:\\Program Files (x86)\\IronPython 2.7\\Lib'\r\nsys.path.append(pyt_path)\r\n\r\nassemblies = System.AppDomain.CurrentDomain.GetAssemblies()\r\npath1 = [a.Location for a in assemblies if 'bumblebee,' in a.FullName][0]\r\npath2 = System.IO.Path.GetDirectoryName(path1).rsplit('\\\\',1)[0]\r\nbb_path = '%s\\\\extra\\\\' %path2\r\nsys.path.append(bb_path)\r\nimport bumblebee as bb\r\nimport os\r\n\r\n#The inputs to this node will be stored as a list in the IN variable.\r\ndataEnteringNode = IN\r\n\r\nfilePath = IN[0]\r\nrunMe = IN[1]\r\nsheetName = IN[2]\r\nclearContent = IN[3]\r\nclearFormat = IN[4]\r\ncellRange = IN[5]\r\n\r\nif filePath != None:\r\n\tif filePath.GetType() == System.IO.FileInfo:\r\n\t\tfilePath = filePath.FullName\r\n\r\ndef SetUp(xlApp):\r\n\t# supress updates and warning pop ups\r\n\txlApp.Visible = False\r\n\txlApp.DisplayAlerts = False\r\n\txlApp.ScreenUpdating = False\r\n\treturn xlApp\r\n\r\ndef LiveStream():\r\n\ttry:\r\n\t\txlApp = Marshal.GetActiveObject(\"Excel.Application\")\r\n\t\txlApp.Visible = True\r\n\t\txlApp.DisplayAlerts = False\r\n\t\treturn xlApp\r\n\texcept:\r\n\t\treturn None\r\n\r\ndef ExitExcel(filePath, xlApp, wb, ws):\r\n\t# clean up before exiting excel, if any COM object remains\r\n\t# unreleased then excel crashes on open following time\r\n\tdef CleanUp(_list):\r\n\t\tif isinstance(_list, list):\r\n\t\t\tfor i in _list:\r\n\t\t\t\tMarshal.ReleaseComObject(i)\r\n\t\telse:\r\n\t\t\tMarshal.ReleaseComObject(_list)\r\n\t\treturn None\r\n\t\r\n\twb.SaveAs(unicode(filePath))\r\n\txlApp.ActiveWorkbook.Close(False)\r\n\txlApp.ScreenUpdating = True\r\n\tCleanUp([ws,wb,xlApp])\r\n\treturn None\r\n\r\ndef ClearExcel(ws, cellRange, clearContents, clearFormats):\r\n\t# get origin and extent from range string\r\n\t# if no range supplied apply formatting to entire sheet\r\n\tif cellRange != None:\r\n\t\torigin = ws.Cells(bb.xlRange(cellRange)[1], bb.xlRange(cellRange)[0])\r\n\t\textent = ws.Cells(bb.xlRange(cellRange)[3], bb.xlRange(cellRange)[2])\r\n\telse:\r\n\t\torigin = ws.Cells(ws.UsedRange.Row, ws.UsedRange.Column)\r\n\t\textent = ws.Cells(ws.UsedRange.Rows(ws.UsedRange.Rows.Count).Row, ws.UsedRange.Columns(ws.UsedRange.Columns.Count).Column)\r\n\tif clearContents:\r\n\t\tws.Range[origin, extent].ClearContents()\r\n\tif clearFormats:\r\n\t\tws.Range[origin, extent].ClearFormats()\r\n\treturn ws\r\n\r\nif runMe:\r\n\tmessage = None\r\n\ttry:\r\n\t\terrorReport = None\r\n\t\tmessage = \"Success!\"\r\n\t\tif filePath == None:\r\n\t\t\t# run excel in a live mode\r\n\t\t\txlApp = LiveStream()\r\n\t\t\twb = xlApp.ActiveWorkbook\r\n\t\t\tif sheetName == None:\r\n\t\t\t\tws = xlApp.ActiveSheet\r\n\t\t\telse:\r\n\t\t\t\tws = xlApp.Sheets(sheetName)\r\n\t\t\tClearExcel(ws, cellRange, clearContent, clearFormat)\r\n\t\telse:\r\n\t\t\ttry:\r\n\t\t\t\txlApp = SetUp(Excel.ApplicationClass())\r\n\t\t\t\tif os.path.isfile(unicode(filePath)):\r\n\t\t\t\t\txlApp.Workbooks.open(unicode(filePath))\r\n\t\t\t\t\twb = xlApp.ActiveWorkbook\r\n\t\t\t\t\tws = xlApp.Sheets(sheetName)\r\n\t\t\t\t\tClearExcel(ws, cellRange, clearContent, clearFormat)\r\n\t\t\t\t\t#Marshal.ReleaseComObject(extent)\r\n\t\t\t\t\t#Marshal.ReleaseComObject(origin)\r\n\t\t\t\t\tExitExcel(filePath, xlApp, wb, ws)\r\n\t\t\t\telse:\r\n\t\t\t\t\tmessage = \"Specified file doesn't exists.\"\r\n\t\t\texcept:\r\n\t\t\t\txlApp.Quit()\r\n\t\t\t\tMarshal.ReleaseComObject(xlApp)\r\n\texcept:\r\n\t\t# if error accurs anywhere in the process catch it\r\n\t\timport traceback\r\n\t\terrorReport = traceback.format_exc()\r\n\t\tpass\r\nelse:\r\n\terrorReport = None\r\n\tmessage = \"Run Me is set to False. Please set \\nto True if you wish to write data \\nto Excel.\"\r\n\r\nif errorReport == None:\r\n\tOUT = OUT = '\\n'.join('{:^35}'.format(s) for s in message.split('\\n'))\r\nelse:\r\n\tOUT = errorReport",
+      "Engine": "IronPython2",
+      "EngineName": "IronPython2",
+      "VariableInputPorts": true,
+      "Id": "4e90bbd5f23449a09e3444f36107832b",
+      "Inputs": [
+        {
+          "Id": "ecbdaef02d754585a4727f5402f1c650",
+          "Name": "IN[0]",
+          "Description": "Input #0",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "d415eaa3ad9441b1bdb429916e0f4dbb",
+          "Name": "IN[1]",
+          "Description": "Input #1",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "a28a6246db52460782d34fca67926e30",
+          "Name": "IN[2]",
+          "Description": "Input #2",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "183aab508a7a4f84b7f077fd5b49d9bb",
+          "Name": "IN[3]",
+          "Description": "Input #3",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "a3030948c52d4ddab4307333c9e6c314",
+          "Name": "IN[4]",
+          "Description": "Input #4",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "53e117210c6e4ffdb5ba7247e3b19334",
+          "Name": "IN[5]",
+          "Description": "Input #5",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "ce9e28e926bc464b9cbdd46d5dfb41b3",
+          "Name": "OUT",
+          "Description": "Result of the python script",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Runs an embedded Python script."
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.CustomNodes.Output, DynamoCore",
+      "NodeType": "OutputNode",
+      "ElementResolver": null,
+      "Symbol": "OUT",
+      "Id": "fd90a5dafa954267a4c74fa0e0c88038",
+      "Inputs": [
+        {
+          "Id": "332265ec53d443f795fad471b12d54d0",
+          "Name": "",
+          "Description": "",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [],
+      "Replication": "Disabled",
+      "Description": "A function output, use with custom nodes"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.CustomNodes.Symbol, DynamoCore",
+      "NodeType": "InputNode",
+      "Parameter": {
+        "Name": "file_path",
+        "TypeName": "string",
+        "TypeRank": 0,
+        "DefaultValue": "null",
+        "Description": "The path to the Excel file as string"
+      },
+      "Id": "3241153b805d45c184c2f996c7caed31",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "85ceec48814349108efbd70e1bf42ef8",
+          "Name": "",
+          "Description": "Symbol",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "A function parameter, use with custom nodes.\r\n\r\nYou can specify the type and default value for parameter. E.g.,\r\n\r\ninput : var[]..[]\r\nvalue : bool = false"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.CustomNodes.Symbol, DynamoCore",
+      "NodeType": "InputNode",
+      "Parameter": {
+        "Name": "run_it",
+        "TypeName": "bool",
+        "TypeRank": 0,
+        "DefaultValue": "true",
+        "Description": ""
+      },
+      "Id": "1a03f35b1af144ba8134bc58ee534b7e",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "b88e8a8be458414b82e1e15d3383c54d",
+          "Name": "",
+          "Description": "Symbol",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "A function parameter, use with custom nodes.\r\n\r\nYou can specify the type and default value for parameter. E.g.,\r\n\r\ninput : var[]..[]\r\nvalue : bool = false"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.CustomNodes.Symbol, DynamoCore",
+      "NodeType": "InputNode",
+      "Parameter": {
+        "Name": "sheet_name",
+        "TypeName": "string",
+        "TypeRank": 0,
+        "DefaultValue": "\"Sheet1\"",
+        "Description": "The name of the spreadsheet"
+      },
+      "Id": "2a8fb44aec9c4384a5e93db730157ffb",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "bed501222bd7485788a40be17f8167c7",
+          "Name": "",
+          "Description": "Symbol",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "A function parameter, use with custom nodes.\r\n\r\nYou can specify the type and default value for parameter. E.g.,\r\n\r\ninput : var[]..[]\r\nvalue : bool = false"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.CustomNodes.Symbol, DynamoCore",
+      "NodeType": "InputNode",
+      "Parameter": {
+        "Name": "clear_content",
+        "TypeName": "bool",
+        "TypeRank": 0,
+        "DefaultValue": "false",
+        "Description": ""
+      },
+      "Id": "236a7ac1ca03460eabf6137a30779e20",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "c77f25beb962493c9f130f9d9a61ac7b",
+          "Name": "",
+          "Description": "Symbol",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "A function parameter, use with custom nodes.\r\n\r\nYou can specify the type and default value for parameter. E.g.,\r\n\r\ninput : var[]..[]\r\nvalue : bool = false"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.CustomNodes.Symbol, DynamoCore",
+      "NodeType": "InputNode",
+      "Parameter": {
+        "Name": "clear_format",
+        "TypeName": "bool",
+        "TypeRank": 0,
+        "DefaultValue": "false",
+        "Description": ""
+      },
+      "Id": "021cea730b2c4f49add02198e2b9d01a",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "8364b0275a9f4533b4e69804742ff521",
+          "Name": "",
+          "Description": "Symbol",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "A function parameter, use with custom nodes.\r\n\r\nYou can specify the type and default value for parameter. E.g.,\r\n\r\ninput : var[]..[]\r\nvalue : bool = false"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.CustomNodes.Symbol, DynamoCore",
+      "NodeType": "InputNode",
+      "Parameter": {
+        "Name": "cell_range",
+        "TypeName": "string",
+        "TypeRank": 0,
+        "DefaultValue": "null",
+        "Description": "Cell range to be  cleared as A1:Z10"
+      },
+      "Id": "7941e16532e943b99fffaa0c3978f2fa",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "6ea5d440eae3463e976cd0dd8e8d8b26",
+          "Name": "",
+          "Description": "Symbol",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "A function parameter, use with custom nodes.\r\n\r\nYou can specify the type and default value for parameter. E.g.,\r\n\r\ninput : var[]..[]\r\nvalue : bool = false"
+    }
+  ],
+  "Connectors": [
+    {
+      "Start": "ce9e28e926bc464b9cbdd46d5dfb41b3",
+      "End": "332265ec53d443f795fad471b12d54d0",
+      "Id": "e4e20506585d48d39f8abac2f59ea513",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "85ceec48814349108efbd70e1bf42ef8",
+      "End": "ecbdaef02d754585a4727f5402f1c650",
+      "Id": "c89cddea2d4a4f58804faff7c66ba048",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "b88e8a8be458414b82e1e15d3383c54d",
+      "End": "d415eaa3ad9441b1bdb429916e0f4dbb",
+      "Id": "687471296a784e60b88646b3c39f7e01",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "bed501222bd7485788a40be17f8167c7",
+      "End": "a28a6246db52460782d34fca67926e30",
+      "Id": "d9a4729bebd14faaae2c43beda6fc55f",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "c77f25beb962493c9f130f9d9a61ac7b",
+      "End": "183aab508a7a4f84b7f077fd5b49d9bb",
+      "Id": "48f731b7baad4eb58cf5ac4421707083",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "8364b0275a9f4533b4e69804742ff521",
+      "End": "a3030948c52d4ddab4307333c9e6c314",
+      "Id": "6b5773ee573a41f4817a1eb5d0cddad5",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "6ea5d440eae3463e976cd0dd8e8d8b26",
+      "End": "53e117210c6e4ffdb5ba7247e3b19334",
+      "Id": "6e9e8b43f3dd40b29141f906187f3cb8",
+      "IsHidden": "False"
+    }
+  ],
+  "Dependencies": [],
+  "NodeLibraryDependencies": [],
+  "Author": "None provided",
+  "Bindings": [],
+  "View": {
+    "Dynamo": {
+      "ScaleFactor": 1.0,
+      "HasRunWithoutCrash": false,
+      "IsVisibleInDynamoLibrary": true,
+      "Version": "2.17.1.4055",
+      "RunType": "Manual",
+      "RunPeriod": "1000"
+    },
+    "Camera": {
+      "Name": "_Background Preview",
+      "EyeX": -17.0,
+      "EyeY": 24.0,
+      "EyeZ": 50.0,
+      "LookX": 12.0,
+      "LookY": -13.0,
+      "LookZ": -58.0,
+      "UpX": 0.0,
+      "UpY": 1.0,
+      "UpZ": 0.0
+    },
+    "ConnectorPins": [],
+    "NodeViews": [
+      {
+        "Name": "Python Script",
+        "ShowGeometry": true,
+        "Id": "4e90bbd5f23449a09e3444f36107832b",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 605.6320212122132,
+        "Y": 394.36768871647894
+      },
+      {
+        "Name": "Output",
+        "ShowGeometry": true,
+        "Id": "fd90a5dafa954267a4c74fa0e0c88038",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 809.66717793476721,
+        "Y": 394.01696070050355
+      },
+      {
+        "Name": "Input",
+        "ShowGeometry": true,
+        "Id": "3241153b805d45c184c2f996c7caed31",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 75.4121421810352,
+        "Y": 161.83922267953
+      },
+      {
+        "Name": "Input",
+        "ShowGeometry": true,
+        "Id": "1a03f35b1af144ba8134bc58ee534b7e",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 239.412142181035,
+        "Y": 290.412108427414
+      },
+      {
+        "Name": "Input",
+        "ShowGeometry": true,
+        "Id": "2a8fb44aec9c4384a5e93db730157ffb",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 145.412142181035,
+        "Y": 418.087518033958
+      },
+      {
+        "Name": "Input",
+        "ShowGeometry": true,
+        "Id": "236a7ac1ca03460eabf6137a30779e20",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 176.412142181035,
+        "Y": 545.060098035249
+      },
+      {
+        "Name": "Input",
+        "ShowGeometry": true,
+        "Id": "021cea730b2c4f49add02198e2b9d01a",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 184.412142181035,
+        "Y": 680.644565042711
+      },
+      {
+        "Name": "Input",
+        "ShowGeometry": true,
+        "Id": "7941e16532e943b99fffaa0c3978f2fa",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 88.69220525847669,
+        "Y": 812.04049458403472
+      }
+    ],
+    "Annotations": [
+      {
+        "Id": "5031c4b259594c67b6de38cb9b218bf7",
+        "Title": "From Bumblebee 2021.15.3",
+        "DescriptionText": null,
+        "IsExpanded": true,
+        "WidthAdjustment": 0.0,
+        "HeightAdjustment": 0.0,
+        "Nodes": [],
+        "HasNestedGroups": false,
+        "Left": 604.72137534672709,
+        "Top": 331.46490402825981,
+        "Width": 0.0,
+        "Height": 0.0,
+        "FontSize": 36.0,
+        "GroupStyleId": "00000000-0000-0000-0000-000000000000",
+        "InitialTop": 0.0,
+        "InitialHeight": 0.0,
+        "TextblockHeight": 0.0,
+        "Background": "#FFC1D676"
+      }
+    ],
+    "X": 251.26630344179915,
+    "Y": -7.6571377081744458,
+    "Zoom": 1.2852827688530044
+  }
+}
