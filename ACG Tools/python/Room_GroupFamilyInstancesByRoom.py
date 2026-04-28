@@ -3,8 +3,9 @@
 # IN[1] = list of room instances
 #
 # Output:
-# Dictionary where each key is a room number and each value is the list of
-# input family instances whose LocationPoint is inside that room.
+# OUT[0] = list of rooms that contain one or more furniture instances
+# OUT[1] = 2D list of furniture instances, aligned with OUT[0]
+# OUT[2] = list of rooms that do not contain any input furniture instances
 
 import clr
 
@@ -35,36 +36,47 @@ def get_location_point(element):
     return None
 
 
-family_instances = as_list(IN[0])
+furniture_instances = as_list(IN[0])
 rooms = as_list(IN[1])
 
-# Keep the original Dynamo-wrapped family instances in the result values.
+# Keep the original Dynamo-wrapped elements in the output values.
 instances = []
-for wrapped_instance in family_instances:
+for wrapped_instance in furniture_instances:
     revit_instance = UnwrapElement(wrapped_instance)
     if revit_instance is not None:
         instances.append((wrapped_instance, revit_instance))
 
-revit_rooms = []
-for room in rooms:
-    revit_room = UnwrapElement(room)
+room_pairs = []
+for wrapped_room in rooms:
+    revit_room = UnwrapElement(wrapped_room)
     if revit_room is not None:
-        revit_rooms.append(revit_room)
+        room_pairs.append((wrapped_room, revit_room))
 
-result = {}
+furniture_by_room = [[] for room_pair in room_pairs]
 
 for wrapped_instance, revit_instance in instances:
     point = get_location_point(revit_instance)
     if point is None:
         continue
 
-    for room in revit_rooms:
+    for index, room_pair in enumerate(room_pairs):
+        room = room_pair[1]
         if room.IsPointInRoom(point):
-            room_number = room.Number
-            if room_number not in result:
-                result[room_number] = []
-
-            result[room_number].append(wrapped_instance)
+            furniture_by_room[index].append(wrapped_instance)
             break
 
-OUT = result
+rooms_with_furniture = []
+furniture_in_rooms = []
+rooms_without_furniture = []
+
+for index, room_pair in enumerate(room_pairs):
+    wrapped_room = room_pair[0]
+    room_furniture = furniture_by_room[index]
+
+    if room_furniture:
+        rooms_with_furniture.append(wrapped_room)
+        furniture_in_rooms.append(room_furniture)
+    else:
+        rooms_without_furniture.append(wrapped_room)
+
+OUT = rooms_with_furniture, furniture_in_rooms, rooms_without_furniture
