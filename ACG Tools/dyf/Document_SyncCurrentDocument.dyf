@@ -1,0 +1,554 @@
+{
+  "Uuid": "eab0615c-19be-429f-9657-652d08dcd39b",
+  "IsCustomNode": true,
+  "Category": "ACG Tools",
+  "Description": "Synchronizes the current workshared Revit document with central.",
+  "Name": "Document.Sync Current Document",
+  "ElementResolver": {
+    "ResolutionMap": {}
+  },
+  "Inputs": [],
+  "Outputs": [],
+  "Nodes": [
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "NodeType": "PythonScriptNode",
+      "Code": "import clr\nfrom datetime import datetime\n\nclr.AddReference('RevitAPI')\nfrom Autodesk.Revit.DB import *\n\nclr.AddReference('RevitServices')\nfrom RevitServices.Persistence import DocumentManager\nfrom RevitServices.Transactions import TransactionManager\n\n\ndef as_bool(value, default=False):\n    if value is None:\n        return default\n    if isinstance(value, bool):\n        return value\n    text = str(value).strip().lower()\n    if text in ('true', '1', 'yes', 'y'):\n        return True\n    if text in ('false', '0', 'no', 'n', ''):\n        return False\n    return bool(value)\n\n\ndef central_path(document):\n    try:\n        model_path = document.GetWorksharingCentralModelPath()\n        if model_path:\n            return ModelPathUtils.ConvertModelPathToUserVisiblePath(model_path)\n    except:\n        pass\n    try:\n        return document.PathName\n    except:\n        return ''\n\n\nrun_it = as_bool(IN[0], False)\ncomment = IN[1] if IN[1] else 'Synced from Dynamo'\nrelinquish_all = as_bool(IN[2], True)\ncompact = as_bool(IN[3], False)\n\ndoc = DocumentManager.Instance.CurrentDBDocument\ndocument_title = doc.Title if doc else ''\ndocument_path = central_path(doc) if doc else ''\nsynced_at = ''\nis_detached = False\n\nif doc:\n    try:\n        is_detached = doc.IsDetached\n    except:\n        is_detached = False\n\nsuccess = False\nmessage = 'Set run_it to true to synchronize the current Revit document.'\n\nif run_it:\n    if doc is None:\n        message = 'No current Revit document was found.'\n    elif not doc.IsWorkshared:\n        message = 'The current Revit document is not workshared and cannot synchronize with central.'\n    elif is_detached:\n        message = 'The current Revit document is detached from central and cannot synchronize.'\n    else:\n        try:\n            # SynchronizeWithCentral must run outside Dynamo/Revit transactions.\n            TransactionManager.Instance.ForceCloseTransaction()\n\n            transact_options = TransactWithCentralOptions()\n            sync_options = SynchronizeWithCentralOptions()\n            sync_options.Comment = str(comment)\n            sync_options.Compact = compact\n            sync_options.SaveLocalBefore = True\n            sync_options.SaveLocalAfter = True\n            sync_options.SetRelinquishOptions(RelinquishOptions(relinquish_all))\n\n            doc.SynchronizeWithCentral(transact_options, sync_options)\n            success = True\n            synced_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')\n            document_path = central_path(doc)\n            message = 'Synchronized current Revit document with central.'\n        except Exception as err:\n            message = 'Synchronize with central failed: ' + str(err)\n\nOUT = [success, message, document_title, document_path, synced_at]\n",
+      "Engine": "IronPython2",
+      "EngineName": "IronPython2",
+      "VariableInputPorts": true,
+      "Id": "421372d6ae0e43b48eebc9eb639bc6e8",
+      "Inputs": [
+        {
+          "Id": "38e163a86e75481bb637cd076007f0da",
+          "Name": "IN[0]",
+          "Description": "Input #0",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "fd74173cdc794036a67ad41500acb041",
+          "Name": "IN[1]",
+          "Description": "Input #1",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "efcab61b5ccd4a7aae76baac01919f63",
+          "Name": "IN[2]",
+          "Description": "Input #2",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "55ac50ccded0404b89b7943775d8cc5c",
+          "Name": "IN[3]",
+          "Description": "Input #3",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "ca126db52c5b4b33aecfac28ef9e74e6",
+          "Name": "OUT",
+          "Description": "Result of the python script",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Runs an embedded Python script."
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.CustomNodes.Symbol, DynamoCore",
+      "NodeType": "InputNode",
+      "Parameter": {
+        "Name": "run_it",
+        "TypeName": "bool",
+        "TypeRank": 0,
+        "DefaultValue": "false",
+        "Description": "Set to true to synchronize the current Revit document."
+      },
+      "Id": "4b3b734f98484bcc810d3344a1a00aa8",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "276dd05ae0c54a0297ad52d2e8c5721a",
+          "Name": "",
+          "Description": "Input Data",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "A function parameter, use with custom nodes.\r\n\r\nYou can specify the type and default value for parameter. E.g.,\r\n\r\ninput : var[]..[]\r\nvalue : bool = false"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.CustomNodes.Symbol, DynamoCore",
+      "NodeType": "InputNode",
+      "Parameter": {
+        "Name": "comment",
+        "TypeName": "string",
+        "TypeRank": 0,
+        "DefaultValue": "\"Synced from Dynamo\"",
+        "Description": "Synchronize with Central comment."
+      },
+      "Id": "f9c9f9cb8ea744b6bcb2519b7f3239a7",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "b048da0b9a3e46fa914ce39bc3f254c3",
+          "Name": "",
+          "Description": "Input Data",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "A function parameter, use with custom nodes.\r\n\r\nYou can specify the type and default value for parameter. E.g.,\r\n\r\ninput : var[]..[]\r\nvalue : bool = false"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.CustomNodes.Symbol, DynamoCore",
+      "NodeType": "InputNode",
+      "Parameter": {
+        "Name": "relinquish_all",
+        "TypeName": "bool",
+        "TypeRank": 0,
+        "DefaultValue": "true",
+        "Description": "Relinquish all editable worksets and borrowed elements after sync."
+      },
+      "Id": "d5571390feaf4a3eb2d728e71f803691",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "52711c494ef94346b09382f9b35e9e04",
+          "Name": "",
+          "Description": "Input Data",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "A function parameter, use with custom nodes.\r\n\r\nYou can specify the type and default value for parameter. E.g.,\r\n\r\ninput : var[]..[]\r\nvalue : bool = false"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.CustomNodes.Symbol, DynamoCore",
+      "NodeType": "InputNode",
+      "Parameter": {
+        "Name": "compact",
+        "TypeName": "bool",
+        "TypeRank": 0,
+        "DefaultValue": "false",
+        "Description": "Compact the central model during synchronization."
+      },
+      "Id": "902a6aec7ce74fda86a296fc3496bd6b",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "88eb5f3b5ff845b3a8324a05d7415dee",
+          "Name": "",
+          "Description": "Input Data",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "A function parameter, use with custom nodes.\r\n\r\nYou can specify the type and default value for parameter. E.g.,\r\n\r\ninput : var[]..[]\r\nvalue : bool = false"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.CodeBlockNodeModel, DynamoCore",
+      "NodeType": "CodeBlockNode",
+      "Code": "x[0];\nx[1];\nx[2];\nx[3];\nx[4];",
+      "Id": "c9d96d6c14c74aa09cf5e7d9687e49f1",
+      "Inputs": [
+        {
+          "Id": "3c698b03c3f94cc3b28aef4141fc93cd",
+          "Name": "x",
+          "Description": "x",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "622b72b2a944479698b6e7272b3ad49d",
+          "Name": "",
+          "Description": "success",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "56d1e9c5f0474d9d9d29376764b0671b",
+          "Name": "",
+          "Description": "message",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "871d8bc5a4064e0cb792d41ae20935f1",
+          "Name": "",
+          "Description": "document_title",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "1854ebde373b4fa8bd84619392652d46",
+          "Name": "",
+          "Description": "central_path",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "b9fda7fea009422483e2ad4690062058",
+          "Name": "",
+          "Description": "synced_at",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "Allows for DesignScript code to be authored directly"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.CustomNodes.Output, DynamoCore",
+      "NodeType": "OutputNode",
+      "ElementResolver": null,
+      "Symbol": "success",
+      "Id": "1ec96f3ebe574437a8109f858c8418dd",
+      "Inputs": [
+        {
+          "Id": "b8a97a72c02e45829055cf9e84d2758c",
+          "Name": "",
+          "Description": "True when synchronization completes successfully.",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [],
+      "Replication": "Disabled",
+      "Description": "A function output, use with custom nodes"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.CustomNodes.Output, DynamoCore",
+      "NodeType": "OutputNode",
+      "ElementResolver": null,
+      "Symbol": "message",
+      "Id": "a896c026e4794122adc6f311192f15d3",
+      "Inputs": [
+        {
+          "Id": "f27d5426beb8448e969b8dc3bb61feed",
+          "Name": "",
+          "Description": "Status or error message.",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [],
+      "Replication": "Disabled",
+      "Description": "A function output, use with custom nodes"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.CustomNodes.Output, DynamoCore",
+      "NodeType": "OutputNode",
+      "ElementResolver": null,
+      "Symbol": "document_title",
+      "Id": "2d2cee49eea44c468d866273cea6ab79",
+      "Inputs": [
+        {
+          "Id": "f09c8347a53141fdb0cedc4343089ad7",
+          "Name": "",
+          "Description": "Current Revit document title.",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [],
+      "Replication": "Disabled",
+      "Description": "A function output, use with custom nodes"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.CustomNodes.Output, DynamoCore",
+      "NodeType": "OutputNode",
+      "ElementResolver": null,
+      "Symbol": "central_path",
+      "Id": "65972228707e4f5aab8486770a70dc2f",
+      "Inputs": [
+        {
+          "Id": "20d26e9fd78948578ac14ac0cf1a2833",
+          "Name": "",
+          "Description": "User-visible central model path when available.",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [],
+      "Replication": "Disabled",
+      "Description": "A function output, use with custom nodes"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.CustomNodes.Output, DynamoCore",
+      "NodeType": "OutputNode",
+      "ElementResolver": null,
+      "Symbol": "synced_at",
+      "Id": "c657625b62cf49ed8969573ec55697bc",
+      "Inputs": [
+        {
+          "Id": "5492fc4479dc4fd0b54501ef2d06f157",
+          "Name": "",
+          "Description": "Local timestamp for a successful sync.",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [],
+      "Replication": "Disabled",
+      "Description": "A function output, use with custom nodes"
+    }
+  ],
+  "Connectors": [
+    {
+      "Start": "276dd05ae0c54a0297ad52d2e8c5721a",
+      "End": "38e163a86e75481bb637cd076007f0da",
+      "Id": "c87a0bc856fc41cf95e6b11ce5d0c76d",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "b048da0b9a3e46fa914ce39bc3f254c3",
+      "End": "fd74173cdc794036a67ad41500acb041",
+      "Id": "05e3b3eae6b14c1d9ba6358130733791",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "52711c494ef94346b09382f9b35e9e04",
+      "End": "efcab61b5ccd4a7aae76baac01919f63",
+      "Id": "98dfb28defe44934a6405c585abbcd29",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "88eb5f3b5ff845b3a8324a05d7415dee",
+      "End": "55ac50ccded0404b89b7943775d8cc5c",
+      "Id": "f39a156aadeb45c4a78b6bd6ac9aef90",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "ca126db52c5b4b33aecfac28ef9e74e6",
+      "End": "3c698b03c3f94cc3b28aef4141fc93cd",
+      "Id": "c0ec8f45a63c4e6bb7e47626711872e2",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "622b72b2a944479698b6e7272b3ad49d",
+      "End": "b8a97a72c02e45829055cf9e84d2758c",
+      "Id": "567c7d7327644722b7fbd0c1ea067ea3",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "56d1e9c5f0474d9d9d29376764b0671b",
+      "End": "f27d5426beb8448e969b8dc3bb61feed",
+      "Id": "d787b746e6bf4e48b595e9c54df30067",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "871d8bc5a4064e0cb792d41ae20935f1",
+      "End": "f09c8347a53141fdb0cedc4343089ad7",
+      "Id": "ed03e49a85bc4199bbb8c77f32efa27a",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "1854ebde373b4fa8bd84619392652d46",
+      "End": "20d26e9fd78948578ac14ac0cf1a2833",
+      "Id": "8ff73f076c1f4d16af858fb28b13dc34",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "b9fda7fea009422483e2ad4690062058",
+      "End": "5492fc4479dc4fd0b54501ef2d06f157",
+      "Id": "61ecc9dacdd24a34a4c08573a9d75688",
+      "IsHidden": "False"
+    }
+  ],
+  "Dependencies": [],
+  "NodeLibraryDependencies": [],
+  "Author": "None provided",
+  "Bindings": [],
+  "View": {
+    "Dynamo": {
+      "ScaleFactor": 1.0,
+      "HasRunWithoutCrash": false,
+      "IsVisibleInDynamoLibrary": true,
+      "Version": "2.12.1.8246",
+      "RunType": "Manual",
+      "RunPeriod": "1000"
+    },
+    "Camera": {
+      "Name": "Background Preview",
+      "EyeX": -17.0,
+      "EyeY": 24.0,
+      "EyeZ": 50.0,
+      "LookX": 12.0,
+      "LookY": -13.0,
+      "LookZ": -58.0,
+      "UpX": 0.0,
+      "UpY": 1.0,
+      "UpZ": 0.0
+    },
+    "ConnectorPins": [],
+    "NodeViews": [
+      {
+        "Name": "Python Script",
+        "ShowGeometry": true,
+        "Id": "421372d6ae0e43b48eebc9eb639bc6e8",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 480.0,
+        "Y": 240.0
+      },
+      {
+        "Name": "run_it",
+        "ShowGeometry": true,
+        "Id": "4b3b734f98484bcc810d3344a1a00aa8",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 120.0,
+        "Y": 90.0
+      },
+      {
+        "Name": "comment",
+        "ShowGeometry": true,
+        "Id": "f9c9f9cb8ea744b6bcb2519b7f3239a7",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 120.0,
+        "Y": 175.0
+      },
+      {
+        "Name": "relinquish_all",
+        "ShowGeometry": true,
+        "Id": "d5571390feaf4a3eb2d728e71f803691",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 120.0,
+        "Y": 260.0
+      },
+      {
+        "Name": "compact",
+        "ShowGeometry": true,
+        "Id": "902a6aec7ce74fda86a296fc3496bd6b",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 120.0,
+        "Y": 345.0
+      },
+      {
+        "Name": "Code Block",
+        "ShowGeometry": true,
+        "Id": "c9d96d6c14c74aa09cf5e7d9687e49f1",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 780.0,
+        "Y": 250.0
+      },
+      {
+        "Name": "Output",
+        "ShowGeometry": true,
+        "Id": "1ec96f3ebe574437a8109f858c8418dd",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 1020.0,
+        "Y": 120.0
+      },
+      {
+        "Name": "Output",
+        "ShowGeometry": true,
+        "Id": "a896c026e4794122adc6f311192f15d3",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 1020.0,
+        "Y": 195.0
+      },
+      {
+        "Name": "Output",
+        "ShowGeometry": true,
+        "Id": "2d2cee49eea44c468d866273cea6ab79",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 1020.0,
+        "Y": 270.0
+      },
+      {
+        "Name": "Output",
+        "ShowGeometry": true,
+        "Id": "65972228707e4f5aab8486770a70dc2f",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 1020.0,
+        "Y": 345.0
+      },
+      {
+        "Name": "Output",
+        "ShowGeometry": true,
+        "Id": "c657625b62cf49ed8969573ec55697bc",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 1020.0,
+        "Y": 420.0
+      }
+    ],
+    "Annotations": [],
+    "X": -70.0,
+    "Y": -75.0,
+    "Zoom": 1.0
+  }
+}
